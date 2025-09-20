@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const passport = require("passport");
 const dotenv = require("dotenv");
 const nodemailer = require("nodemailer");
-const { Users } = require("../models/db");
+const { Users, userSubmitionsDB } = require("../models/db");
 const bcrypt = require("bcrypt");
 dotenv.config();
 
@@ -21,7 +21,7 @@ routes.post("/signup", async (req, res) => {
 
     // ✅ Check OTP
     if (user.otp !== body.otp) {
-      return res.json({ message: "Invalid OTP" });
+      return res.status(401).json({ message: "Invalid OTP" });
     }
 
     // ✅ Hash password properly
@@ -37,10 +37,12 @@ routes.post("/signup", async (req, res) => {
 
     // ✅ Set cookie
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: false, // set true in production with HTTPS
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    });
+  httpOnly: true,
+  secure: true, // true on production (HTTPS)
+  sameSite: "none", // allow cross-site
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+});
+
 
     return res.json({ message: "Login successful", user });
   } catch (err) {
@@ -64,11 +66,13 @@ routes.post("/login", async(req, res)=>{
 
   const payload = {email, password}
   const token = jwt.sign(payload, JWT_SECRET, {expiresIn: "30d"});
-  res.cookie("token",token, {
-         httpOnly: true,
-         secure: false,
-         maxAge: 30 * 24 * 60 * 60 * 1000,
-  })
+  res.cookie("token", token, {
+  httpOnly: true,
+  secure: true, // true on production (HTTPS)
+  sameSite: "none", // allow cross-site
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+});
+
   return res.json({
       message: "Success"
   })
@@ -97,11 +101,13 @@ routes.get(
   (req, res) => {
     const token = jwt.sign(req.user, JWT_SECRET);
     res.cookie("token", token, {
-      httpOnly: true, // safer, not accessible from JS
-      secure: false, // true if using HTTPS
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
-    });
-   res.redirect("http://localhost:5173/dashboard"); // redirect to frontend
+  httpOnly: true,
+  secure: true, // true on production (HTTPS)
+  sameSite: "none", // allow cross-site
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+});
+
+   res.redirect("https://leetcode-clone-frontend-nu.vercel.app/dashboard"); // redirect to frontend
   }
 );
 
@@ -159,5 +165,22 @@ routes.post("/sendotp", async (req, res) => {
    return res.json({ error: "Failed to send email"});
   }
 });
+
+routes.post("/logout", (req, res)=>{
+      res.clearCookie("token",{
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict"
+      })
+      res.json({
+         message: "logout success"
+      })
+})
+
+routes.post("/testing", (req, res)=>{
+     res.json({
+        message: "Working bro"
+    })
+})
 
 module.exports = routes;
