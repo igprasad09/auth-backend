@@ -12,7 +12,7 @@ const app = express();
 
 app.use(cors({
   credentials: true,
-  origin: process.env.CLIENT_URL || "https://your-frontend-domain.com",
+  origin: "*",
 }));
 
 app.use(cookieParser());
