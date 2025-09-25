@@ -12,7 +12,7 @@ const app = express();
 
 app.use(cors({
   credentials: true,
-  origin: process.env.CLIENT_URL || "https://leetcode-clone-frontend-nu.vercel.app",
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
 }));
 
 app.use(cookieParser());
