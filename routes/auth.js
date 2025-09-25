@@ -107,11 +107,7 @@ routes.get(
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
    
-   try{
-      res.redirect("http://localhost:5173/dashboard");
-   }catch(err){
-       res.redirect("https://leetcode-clone-frontend-nu.vercel.app");
-   } 
+   res.redirect("https://leetcode-clone-frontend-nu.vercel.app");
   }
 );
 
