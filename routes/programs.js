@@ -20,17 +20,14 @@ routes.post("/programinfo", async (req, res) => {
 
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ message: "Login is Required!" });
-  }
+  if (!email) return res.status(400).json({ message: "Login is Required!" });
 
   try {
-    // 1️⃣ Fetch runtimes
+    // fetch runtimes
     const runtimesResp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
     const runtimes = runtimesResp.data;
 
-    // 2️⃣ Find version
+    // find version
     const version = runtimes.find(r =>
       r.language.toLowerCase() === language.toLowerCase() ||
       (r.aliases && r.aliases.includes(language.toLowerCase()))
@@ -38,12 +35,9 @@ routes.post("/programexicute", async (req, res) => {
 
     if (!version) return res.status(400).json({ error: "Language not supported" });
 
-    // 3️⃣ Execute code for each stdio safely
-    const results = [];
-    for (let i = 0; i < stdio.length; i++) {
-      const io = stdio[i];
+    // prepare all execution promises
+    const execPromises = stdio.map(async (io, i) => {
       let finalCode = code;
-
       if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
       if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
 
@@ -54,15 +48,17 @@ routes.post("/programexicute", async (req, res) => {
           files: [{ name: "main", content: finalCode }],
           stdin: io.input || ""
         });
-
-        results.push({ index: i, output: executeResp.data });
+        return { index: i, output: executeResp.data };
       } catch (err) {
         console.error(`Execution failed for test case ${i}:`, err.message);
-        results.push({ index: i, output: { run: { stdout: "", stderr: "Execution failed" } } });
+        return { index: i, output: { run: { stdout: "", stderr: "Execution failed" } } };
       }
-    }
+    });
 
-    // 4️⃣ Return all results
+    // wait for all to finish
+    const results = await Promise.all(execPromises);
+
+    // send response
     return res.json({ version, results });
 
   } catch (err) {
@@ -70,6 +66,7 @@ routes.post("/programexicute", async (req, res) => {
     return res.status(500).json({ error: "Server busy or execution failed" });
   }
 });
+
 
 routes.post("/submit", async(req, res)=>{
       const {email, id} = req.body;
