@@ -28,7 +28,7 @@ async function getRuntimes() {
     const resp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
     cachedRuntimes = resp.data;
     lastFetched = now;
-  }
+  } 
   return cachedRuntimes;
 }
 
@@ -71,7 +71,7 @@ routes.post("/programexicute", async (req, res) => {
             files: [{ name: "main", content: finalCode }],
             stdin: io.input || ""
           },
-          { timeout: 10000 } // 10 second timeout per execution
+          { timeout: 15000 } // 15 second timeout per execution
         );
 
         return {
