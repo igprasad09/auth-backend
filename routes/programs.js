@@ -18,47 +18,81 @@ routes.post("/programinfo", async (req, res) => {
   });
 });
 
+let cachedRuntimes = null;
+let lastFetched = 0;
+
+async function getRuntimes() {
+  const now = Date.now();
+  // Refresh cache every 30 minutes
+  if (!cachedRuntimes || (now - lastFetched > 30 * 60 * 1000)) {
+    const resp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
+    cachedRuntimes = resp.data;
+    lastFetched = now;
+  }
+  return cachedRuntimes;
+}
+
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
-  if (!email) return res.status(400).json({ message: "Login is Required!" });
+
+  if (!email) {
+    return res.status(400).json({ message: "Login is Required!" });
+  }
 
   try {
-    // fetch runtimes
-    const runtimesResp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
-    const runtimes = runtimesResp.data;
+    // 🔹 Get runtimes once
+    const runtimes = await getRuntimes();
 
-    // find version
+    // 🔹 Find version
     const version = runtimes.find(r =>
       r.language.toLowerCase() === language.toLowerCase() ||
       (r.aliases && r.aliases.includes(language.toLowerCase()))
     )?.version;
 
-    if (!version) return res.status(400).json({ error: "Language not supported" });
+    if (!version) {
+      return res.status(400).json({ error: "Language not supported" });
+    }
 
-    // prepare all execution promises
+    // 🔹 Prepare execution promises in parallel
     const execPromises = stdio.map(async (io, i) => {
+      // Clone original code each time
       let finalCode = code;
+
+      // Append test-case-specific code if provided
       if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
       if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
 
       try {
-        const executeResp = await axios.post("https://emkc.org/api/v2/piston/execute", {
-          language: language.toLowerCase(),
-          version,
-          files: [{ name: "main", content: finalCode }],
-          stdin: io.input || ""
-        });
-        return { index: i, output: executeResp.data };
+        const executeResp = await axios.post(
+          "https://emkc.org/api/v2/piston/execute",
+          {
+            language: language.toLowerCase(),
+            version,
+            files: [{ name: "main", content: finalCode }],
+            stdin: io.input || ""
+          },
+          { timeout: 10000 } // 10 second timeout per execution
+        );
+
+        return {
+          index: i,
+          success: true,
+          output: executeResp.data
+        };
       } catch (err) {
         console.error(`Execution failed for test case ${i}:`, err.message);
-        return { index: i, output: { run: { stdout: "", stderr: "Execution failed" } } };
+        return {
+          index: i,
+          success: false,
+          output: { run: { stdout: "", stderr: "Execution failed" } }
+        };
       }
     });
 
-    // wait for all to finish
+    // 🔹 Execute all promises in parallel
     const results = await Promise.all(execPromises);
 
-    // send response
+    // 🔹 Send response
     return res.json({ version, results });
 
   } catch (err) {
@@ -66,6 +100,7 @@ routes.post("/programexicute", async (req, res) => {
     return res.status(500).json({ error: "Server busy or execution failed" });
   }
 });
+
 
 
 routes.post("/submit", async(req, res)=>{
