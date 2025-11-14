@@ -106,8 +106,8 @@ routes.get(
   sameSite: "none", // allow cross-site
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
-   
-   res.redirect("https://leetcode-clone-frontend-nu.vercel.app");
+
+   res.redirect("https://leetcode-clone-frontend-nu.vercel.app"); // redirect to frontend
   }
 );
 
