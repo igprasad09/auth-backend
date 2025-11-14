@@ -18,6 +18,20 @@ routes.post("/programinfo", async (req, res) => {
   });
 });
 
+let cachedRuntimes = null;
+let lastFetched = 0;
+
+async function getRuntimes() {
+  const now = Date.now();
+  // Refresh cache every 30 minutes
+  if (!cachedRuntimes || (now - lastFetched > 30 * 60 * 1000)) {
+    const resp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
+    cachedRuntimes = resp.data;
+    lastFetched = now;
+  } 
+  return cachedRuntimes;
+}
+
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
 
@@ -27,50 +41,65 @@ routes.post("/programexicute", async (req, res) => {
 
   try {
     // 1️⃣ Fetch runtimes
-    const runtimesResp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
+    const runtimesResp = await axios.get(
+      "https://emkc.org/api/v2/piston/runtimes"
+    );
     const runtimes = runtimesResp.data;
 
     // 2️⃣ Find version
-    const version = runtimes.find(r =>
-      r.language.toLowerCase() === language.toLowerCase() ||
-      (r.aliases && r.aliases.includes(language.toLowerCase()))
-    )?.version;
+    const versions = runtimes
+      .filter(
+        (r) =>
+          r.language.toLowerCase() === language.toLowerCase() ||
+          (r.aliases &&
+            r.aliases.includes(language.toLowerCase()))
+      )
+      .map((r) => r.version);
 
-    if (!version) return res.status(400).json({ error: "Language not supported" });
+    const version = versions[0];
+    if (!version)
+      return res.status(400).json({ error: "Language not supported" });
 
-    // 3️⃣ Execute code for each stdio safely
-    const results = [];
-    for (let i = 0; i < stdio.length; i++) {
-      const io = stdio[i];
-      let finalCode = code;
+    // 3️⃣ Prepare executions for each stdio entry
+    const promises = stdio.map(async (io, index) => {
+      let finalCode;
 
-      if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
-      if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
+      if (language.toLowerCase() === "python") {
+        finalCode = `${code}\n${io.python}`;
+      } else if (language.toLowerCase() === "javascript") {
+        finalCode = `${code}\n${io.javascript}`; // or your field name
+      } else {
+        finalCode = `${code}`;
+      }
 
-      try {
-        const executeResp = await axios.post("https://emkc.org/api/v2/piston/execute", {
+      const executeResp = await axios.post(
+        "https://emkc.org/api/v2/piston/execute",
+        {
           language: language.toLowerCase(),
           version,
           files: [{ name: "main", content: finalCode }],
-          stdin: io.input || ""
-        });
+        }
+      );
 
-        results.push({ index: i, output: executeResp.data });
-      } catch (err) {
-        console.error(`Execution failed for test case ${i}:`, err.message);
-        results.push({ index: i, output: { run: { stdout: "", stderr: "Execution failed" } } });
-      }
-    }
+      return {
+        index,
+        output: executeResp.data,
+      };
+    });
 
-    // 4️⃣ Return all results
-    return res.json({ version, results });
+    // 4️⃣ Wait for all executions to finish
+    const results = await Promise.all(promises);
 
+    // 5️⃣ Send ONE response with all outputs
+    return res.json({
+      version,
+      results,
+    });
   } catch (err) {
     console.error("Server error:", err.message);
     return res.status(500).json({ error: "Server busy or execution failed" });
   }
 });
-
 
 routes.post("/submit", async(req, res)=>{
       const {email, id} = req.body;
