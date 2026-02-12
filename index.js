@@ -13,7 +13,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173", // Local development
-  "https://leetcode-clone-frontend-nu.vercel.app" // Production frontend
+  "https://prepcode.vercel.app" // Production frontend
 ];
 
 app.use(cors({
