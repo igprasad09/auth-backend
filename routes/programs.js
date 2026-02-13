@@ -1,6 +1,6 @@
 const express = require("express");
 const routes = express.Router();
-const { programsDB, programinfoDB, userSubmitionsDB } = require("../models/db");
+const { programsDB, programinfoDB, userSubmitionsDB, FeedbacksDB } = require("../models/db");
 const { default: axios } = require("axios");
 
 routes.get("/", async (req, res) => {
@@ -131,6 +131,39 @@ routes.post("/allsubmitions", async(req, res)=>{
            message: err
         })
      }
+});
+
+routes.post("/feedback",async(req, res)=>{
+  const body = req.body;
+  try{
+     const feedbackDB = await FeedbacksDB.create({
+                email: body.email,
+                feedback: body.feedback
+     })
+     return res.json({
+     message: `${feedbackDB}`
+  })
+  }catch(err){
+     return res.json({
+       message: "Error bro....."
+     })
+  }
+});
+
+routes.get("/allfeedbacks",async(req, res)=>{
+      const allfeedbacks = await FeedbacksDB
+  .find()
+  .sort({ _id: -1 });
+
+      try {
+          return res.json({
+             allfeedbacks
+          })
+      } catch (error) {
+         return res.json({
+          data: "error"
+         })
+      }
 })
 
 module.exports = routes;
