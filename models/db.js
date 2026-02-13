@@ -11,6 +11,11 @@ const Users = mongoose.model("users", {
   otp: String,
 });
 
+const FeedbacksDB = mongoose.model("feedbacks",{
+     email: String,
+     feedback: String
+})
+
 const userSubmitionsDB = mongoose.model("submitions", {
   userId: String,
   programId: [{
@@ -50,5 +55,7 @@ module.exports = {
   Users,
   userSubmitionsDB,
   programsDB,
-  programinfoDB
+  programinfoDB,
+  FeedbacksDB
 };
+
