@@ -25,7 +25,7 @@ async function getRuntimes() {
   const now = Date.now();
   // Refresh cache every 30 minutes
   if (!cachedRuntimes || (now - lastFetched > 30 * 60 * 1000)) {
-    const resp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
+    const resp = await axios.get("http://localhost:2000/api/v2/runtimes");
     cachedRuntimes = resp.data;
     lastFetched = now;
   } 
@@ -34,44 +34,50 @@ async function getRuntimes() {
 
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
-
+  
   if (!email) {
     return res.status(400).json({ message: "Login is Required!" });
   }
 
   try {
-    // 🔹 Get runtimes once
-    const runtimes = await getRuntimes();
 
-    // 🔹 Find version
-    const version = runtimes.find(r =>
-      r.language.toLowerCase() === language.toLowerCase() ||
-      (r.aliases && r.aliases.includes(language.toLowerCase()))
-    )?.version;
+    // 🔹 Judge0 language mapping
+    const languageMap = {
+      python: 71,
+      javascript: 63,
+      cpp: 54,
+      c: 50,
+      java: 62
+    };
 
-    if (!version) {
+    const language_id = languageMap[language.toLowerCase()];
+
+    if (!language_id) {
       return res.status(400).json({ error: "Language not supported" });
     }
 
-    // 🔹 Prepare execution promises in parallel
     const execPromises = stdio.map(async (io, i) => {
-      // Clone original code each time
+
       let finalCode = code;
 
-      // Append test-case-specific code if provided
       if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
       if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
 
       try {
+
         const executeResp = await axios.post(
-          "https://emkc.org/api/v2/piston/execute",
+          "https://ce.judge0.com/submissions/?base64_encoded=false&wait=true",
           {
-            language: language.toLowerCase(),
-            version,
-            files: [{ name: "main", content: finalCode }],
+            source_code: finalCode,
+            language_id: language_id,
             stdin: io.input || ""
           },
-          { timeout: 15000 } // 15 second timeout per execution
+          {
+            headers: {
+              "Content-Type": "application/json"
+            },
+            timeout: 15000
+          }
         );
 
         return {
@@ -79,21 +85,21 @@ routes.post("/programexicute", async (req, res) => {
           success: true,
           output: executeResp.data
         };
+
       } catch (err) {
         console.error(`Execution failed for test case ${i}:`, err.message);
         return {
           index: i,
           success: false,
-          output: { run: { stdout: "", stderr: "Execution failed" } }
+          output: { stdout: "", stderr: "Execution failed" }
         };
       }
+
     });
 
-    // 🔹 Execute all promises in parallel
     const results = await Promise.all(execPromises);
 
-    // 🔹 Send response
-    return res.json({ version, results });
+    return res.json({ results });
 
   } catch (err) {
     console.error("Server error:", err.message);
