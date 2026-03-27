@@ -127,7 +127,7 @@ routes.post("/sendotp", async (req, res) => {
     });
 
     const info = await transporter.sendMail({
-      from: '"Prasad" <vivek87228@gmail.com>',
+      from: '"Prepcode" <vivek87228@gmail.com>',
       to: email,
       subject: "OTP from Prasad",
       text: `Your OTP is ${otp}`,
