@@ -105,7 +105,7 @@ routes.get(
   sameSite: "none", // allow cross-site
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
-   res.redirect("http://localhost:5173/dashboard"); // redirect to frontend
+   res.redirect("https://prepcode.vercel.app/dashboard"); // redirect to frontend
   }
 );
 
