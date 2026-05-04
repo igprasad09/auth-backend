@@ -1,10 +1,10 @@
 const express = require("express");
 const routes = express.Router();
-const { programsDB, programinfoDB, userSubmitionsDB } = require("../models/db");
+const { programsDB, programinfoDB, userSubmitionsDB, FeedbacksDB, LikesDB } = require("../models/db");
 const { default: axios } = require("axios");
 
 routes.get("/", async (req, res) => {
-  const programs = await programsDB.find();
+  const programs = await programsDB.find({active: true});
   return res.json({
     programs,
   });
@@ -21,85 +21,91 @@ routes.post("/programinfo", async (req, res) => {
 let cachedRuntimes = null;
 let lastFetched = 0;
 
-async function getRuntimes() {
-  const now = Date.now();
-  // Refresh cache every 30 minutes
-  if (!cachedRuntimes || (now - lastFetched > 30 * 60 * 1000)) {
-    const resp = await axios.get("https://emkc.org/api/v2/piston/runtimes");
-    cachedRuntimes = resp.data;
-    lastFetched = now;
-  } 
-  return cachedRuntimes;
-}
 
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
+  
+  // 1. Debugging check: See what the frontend actually sent
+  console.log("Execution Request Payload:", { email, language, hasCode: !!code, stdioType: typeof stdio });
 
   if (!email) {
     return res.status(400).json({ message: "Login is Required!" });
   }
 
+  // 2. Safety check: Prevent server crash if stdio is missing or not an array
+  if (!stdio || !Array.isArray(stdio)) {
+    console.error("Execution Error: stdio is missing or not an array.");
+    return res.status(400).json({ error: "Test cases are missing or invalid for this problem." });
+  }
+
   try {
-    // 1️⃣ Fetch runtimes
-    const runtimesResp = await axios.get(
-      "https://emkc.org/api/v2/piston/runtimes"
-    );
-    const runtimes = runtimesResp.data;
+    // 🔹 Judge0 language mapping
+    const languageMap = {
+      python: 71,
+      javascript: 63,
+      cpp: 54,
+      c: 50,
+      java: 62
+    };
 
-    // 2️⃣ Find version
-    const versions = runtimes
-      .filter(
-        (r) =>
-          r.language.toLowerCase() === language.toLowerCase() ||
-          (r.aliases &&
-            r.aliases.includes(language.toLowerCase()))
-      )
-      .map((r) => r.version);
+    const language_id = languageMap[language.toLowerCase()];
 
-    const version = versions[0];
-    if (!version)
+    if (!language_id) {
       return res.status(400).json({ error: "Language not supported" });
+    }
 
-    // 3️⃣ Prepare executions for each stdio entry
-    const promises = stdio.map(async (io, index) => {
-      let finalCode;
+    const execPromises = stdio.map(async (io, i) => {
+      let finalCode = code;
 
-      if (language.toLowerCase() === "python") {
-        finalCode = `${code}\n${io.python}`;
-      } else if (language.toLowerCase() === "javascript") {
-        finalCode = `${code}\n${io.javascript}`; // or your field name
-      } else {
-        finalCode = `${code}`;
+      // Append the execution function call based on language
+      if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
+      if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
+      // Note: C, C++, and Java usually require a main() function in the starter code, 
+      // so they might not need string concatenation here unless you set it up that way.
+
+      try {
+        const executeResp = await axios.post(
+          "https://ce.judge0.com/submissions/?base64_encoded=false&wait=true",
+          {
+            source_code: finalCode,
+            language_id: language_id,
+            stdin: io.input || ""
+          },
+          {
+            headers: {
+              "Content-Type": "application/json"
+            },
+            timeout: 15000
+          }
+        );
+
+        return {
+          index: i,
+          success: true,
+          output: executeResp.data
+        };
+
+      } catch (err) {
+        console.error(`Execution failed for test case ${i}:`, err.response?.data || err.message);
+        return {
+          index: i,
+          success: false,
+          output: { stdout: "", stderr: "Execution request failed." }
+        };
       }
-
-      const executeResp = await axios.post(
-        "https://emkc.org/api/v2/piston/execute",
-        {
-          language: language.toLowerCase(),
-          version,
-          files: [{ name: "main", content: finalCode }],
-        }
-      );
-
-      return {
-        index,
-        output: executeResp.data,
-      };
     });
 
-    // 4️⃣ Wait for all executions to finish
-    const results = await Promise.all(promises);
+    const results = await Promise.all(execPromises);
+    return res.json({ results });
 
-    // 5️⃣ Send ONE response with all outputs
-    return res.json({
-      version,
-      results,
-    });
   } catch (err) {
-    console.error("Server error:", err.message);
+    // Log the FULL error to the terminal so you aren't guessing
+    console.error("Server execution block error:", err);
     return res.status(500).json({ error: "Server busy or execution failed" });
   }
 });
+
+
 
 routes.post("/submit", async(req, res)=>{
       const {email, id} = req.body;
@@ -129,6 +135,59 @@ routes.post("/allsubmitions", async(req, res)=>{
            message: err
         })
      }
-})
+});
+
+routes.post("/feedback",async(req, res)=>{
+  const body = req.body;
+  try{
+     const feedbackDB = await FeedbacksDB.create({
+                email: body.email,
+                feedback: body.feedback
+     })
+     return res.json({
+     message: `${feedbackDB}`
+  })
+  }catch(err){
+     return res.json({
+       message: "Error bro....."
+     })
+  }
+});
+
+routes.get("/allfeedbacks",async(req, res)=>{
+      const allfeedbacks = await FeedbacksDB
+  .find()
+  .sort({ _id: -1 });
+
+      try {
+          return res.json({
+             allfeedbacks
+          })
+      } catch (error) {
+         return res.json({
+          data: "error"
+         })
+      }
+});
+
+  routes.post("/addlikes", async(req, res)=>{
+        const {email, id} = req.body
+        const programId = Number(id);
+        try{
+           const updated = await LikesDB.findOneAndUpdate(
+            {email: email},
+            {$addToSet: {programId}},
+            {new: true, upsert: true}
+          )
+          return res.json({
+              message: "ok bro",
+              updated
+          })
+        }catch(erro){
+           return res.json({
+             message:"error bro"
+           })
+        }
+  })
 
 module.exports = routes;
