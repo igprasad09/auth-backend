@@ -1,10 +1,10 @@
 const express = require("express");
 const routes = express.Router();
-const { programsDB, programinfoDB, userSubmitionsDB, FeedbacksDB } = require("../models/db");
+const { programsDB, programinfoDB, userSubmitionsDB, FeedbacksDB, LikesDB } = require("../models/db");
 const { default: axios } = require("axios");
 
 routes.get("/", async (req, res) => {
-  const programs = await programsDB.find();
+  const programs = await programsDB.find({active: true});
   return res.json({
     programs,
   });
@@ -21,26 +21,24 @@ routes.post("/programinfo", async (req, res) => {
 let cachedRuntimes = null;
 let lastFetched = 0;
 
-async function getRuntimes() {
-  const now = Date.now();
-  // Refresh cache every 30 minutes
-  if (!cachedRuntimes || (now - lastFetched > 30 * 60 * 1000)) {
-    const resp = await axios.get("http://localhost:2000/api/v2/runtimes");
-    cachedRuntimes = resp.data;
-    lastFetched = now;
-  } 
-  return cachedRuntimes;
-}
 
 routes.post("/programexicute", async (req, res) => {
   const { email, code, language, stdio } = req.body;
   
+  // 1. Debugging check: See what the frontend actually sent
+  console.log("Execution Request Payload:", { email, language, hasCode: !!code, stdioType: typeof stdio });
+
   if (!email) {
     return res.status(400).json({ message: "Login is Required!" });
   }
 
-  try {
+  // 2. Safety check: Prevent server crash if stdio is missing or not an array
+  if (!stdio || !Array.isArray(stdio)) {
+    console.error("Execution Error: stdio is missing or not an array.");
+    return res.status(400).json({ error: "Test cases are missing or invalid for this problem." });
+  }
 
+  try {
     // 🔹 Judge0 language mapping
     const languageMap = {
       python: 71,
@@ -57,14 +55,15 @@ routes.post("/programexicute", async (req, res) => {
     }
 
     const execPromises = stdio.map(async (io, i) => {
-
       let finalCode = code;
 
+      // Append the execution function call based on language
       if (language.toLowerCase() === "python" && io.python) finalCode += `\n${io.python}`;
       if (language.toLowerCase() === "javascript" && io.javascript) finalCode += `\n${io.javascript}`;
+      // Note: C, C++, and Java usually require a main() function in the starter code, 
+      // so they might not need string concatenation here unless you set it up that way.
 
       try {
-
         const executeResp = await axios.post(
           "https://ce.judge0.com/submissions/?base64_encoded=false&wait=true",
           {
@@ -87,22 +86,21 @@ routes.post("/programexicute", async (req, res) => {
         };
 
       } catch (err) {
-        console.error(`Execution failed for test case ${i}:`, err.message);
+        console.error(`Execution failed for test case ${i}:`, err.response?.data || err.message);
         return {
           index: i,
           success: false,
-          output: { stdout: "", stderr: "Execution failed" }
+          output: { stdout: "", stderr: "Execution request failed." }
         };
       }
-
     });
 
     const results = await Promise.all(execPromises);
-
     return res.json({ results });
 
   } catch (err) {
-    console.error("Server error:", err.message);
+    // Log the FULL error to the terminal so you aren't guessing
+    console.error("Server execution block error:", err);
     return res.status(500).json({ error: "Server busy or execution failed" });
   }
 });
@@ -170,6 +168,26 @@ routes.get("/allfeedbacks",async(req, res)=>{
           data: "error"
          })
       }
-})
+});
+
+  routes.post("/addlikes", async(req, res)=>{
+        const {email, id} = req.body
+        const programId = Number(id);
+        try{
+           const updated = await LikesDB.findOneAndUpdate(
+            {email: email},
+            {$addToSet: {programId}},
+            {new: true, upsert: true}
+          )
+          return res.json({
+              message: "ok bro",
+              updated
+          })
+        }catch(erro){
+           return res.json({
+             message:"error bro"
+           })
+        }
+  })
 
 module.exports = routes;

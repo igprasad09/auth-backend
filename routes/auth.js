@@ -43,7 +43,6 @@ routes.post("/signup", async (req, res) => {
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
 
-
     return res.json({ message: "Login successful", user });
   } catch (err) {
     return res.json({ message: "Server error"});
@@ -106,8 +105,7 @@ routes.get(
   sameSite: "none", // allow cross-site
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
-
-   res.redirect("https://leetcode-clone-frontend-nu.vercel.app"); // redirect to frontend
+   res.redirect("http://localhost:5173/dashboard"); // redirect to frontend
   }
 );
 

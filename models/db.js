@@ -29,11 +29,13 @@ const programsDB = mongoose.model("programs", {
   difficulty: String,
   category: String,
   solutionlink: String,
+  active: { type: Boolean, default: true }
 });
 
 const programinfoDB = mongoose.model("programdetail",{
       id: String,
       difficulty: String,
+      title: String,
       description: String,
       examples: [{
            input: String,
@@ -48,14 +50,35 @@ const programinfoDB = mongoose.model("programdetail",{
       },
       testCases: [],
       tags: [],
-      visibility: String
+      visibility: String,
+      stdio: []
 },"programdetail");
+
+const LikesDB = mongoose.model("LikesDB",{
+      email: String,
+      programId: [{
+          type: Number
+      }],
+},"LikesDB");
+
+const ContestsDB = mongoose.model("Contests",{
+       contestName: String,
+       addedPrograms: []
+},"ContestsDB");
+
+const ContestSubmitionsDB = mongoose.model("ContestSubmitions",{
+        contestId: String,
+        users: []
+}, "ContestSubmitions");
 
 module.exports = {
   Users,
   userSubmitionsDB,
   programsDB,
   programinfoDB,
-  FeedbacksDB
+  FeedbacksDB,
+  LikesDB,
+  ContestsDB,
+  ContestSubmitionsDB
 };
 

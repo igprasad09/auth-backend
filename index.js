@@ -8,6 +8,8 @@ const passport = require("./passport");
 const session = require("express-session");
 const programsRoute = require("./routes/programs");
 const rankRoute = require("./routes/rankdata");
+const adminRoute = require("./routes/admin");
+const contestRoute = require("./routes/contests");
 
 const app = express();
 
@@ -40,6 +42,8 @@ app.use(session({
 app.use("/", authRoute);
 app.use("/programs", programsRoute);
 app.use("/api", rankRoute);
+app.use("/admin", adminRoute);
+app.use("/contests", contestRoute);
 
 app.post("/testing", (req, res)=>{
      res.json({
