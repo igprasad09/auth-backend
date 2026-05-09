@@ -15,7 +15,8 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173", // Local development
-  "https://prepcode.vercel.app" // Production frontend
+  "https://prepcode.vercel.app",
+  "https://prepcode.netlify.app"// Production frontend
 ];
 
 app.use(cors({
