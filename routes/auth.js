@@ -129,16 +129,79 @@ routes.post("/sendotp", async (req, res) => {
       to: email,
       subject: "OTP from Prasad",
       text: `Your OTP is ${otp}`,
-      html: ` <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
-      <h2 style="color: #333;">Hello!</h2>
-      <p>Use the following OTP to complete your verification:</p>
-      <div style="font-size: 32px; font-weight: bold; color: #1a73e8; margin: 20px 0; letter-spacing: 5px;">
-        ${otp}
-      </div>
-      <p style="color: #555;">This OTP is valid for <strong>10 minutes</strong>.</p>
-      <hr style="margin: 20px 0; border-color: #ddd;">
-      <p style="font-size: 12px; color: #999;">If you did not request this, please ignore this email.</p>
-    </div>
+      html: ` <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Animations for email clients that support them */
+    @keyframes fadeIn {
+      0% { opacity: 0; transform: translateY(15px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes glowPulse {
+      0% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); }
+      50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.4); }
+      100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); }
+    }
+    
+    .animated-wrapper {
+      animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .otp-glow {
+      animation: glowPulse 2.5s infinite alternate;
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #09090b; -webkit-font-smoothing: antialiased;">
+
+  <!-- Background Wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #09090b; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <tr>
+      <td align="center" style="padding: 60px 15px;">
+        
+        <!-- Main Content Card -->
+        <div class="animated-wrapper" style="max-width: 480px; width: 100%; background: linear-gradient(145deg, #121214, #18181b); padding: 40px; border-radius: 16px; border: 1px solid #27272a; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+          
+          <!-- Header Icon (Optional SVG placeholder) -->
+          <div style="margin-bottom: 24px;">
+            <div style="width: 48px; height: 48px; background-color: rgba(0, 240, 255, 0.1); border-radius: 50%; display: inline-block; line-height: 48px;">
+              <span style="font-size: 24px;">🛡️</span>
+            </div>
+          </div>
+
+          <h2 style="color: #ffffff; margin: 0 0 12px 0; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;">Security Verification</h2>
+          
+          <p style="color: #a1a1aa; font-size: 15px; line-height: 1.6; margin: 0 0 32px 0;">
+            A request was made to verify your identity. Please use the secure authorization code below to proceed.
+          </p>
+
+          <!-- Animated OTP Box -->
+          <div class="otp-glow" style="background-color: #000000; border: 1px solid #00f0ff; border-radius: 12px; padding: 24px; margin: 0 auto 24px auto; max-width: 300px;">
+            <div style="font-family: 'Courier New', Courier, monospace; font-size: 42px; font-weight: 700; color: #00f0ff; letter-spacing: 12px; margin-left: 12px; text-shadow: 0 0 15px rgba(0, 240, 255, 0.3);">
+              ${otp}
+            </div>
+          </div>
+
+          <p style="color: #71717a; font-size: 14px; margin: 0 0 32px 0;">
+            This code will expire in <span style="color: #00f0ff; font-weight: 600;">10 minutes</span>.
+          </p>
+
+          <!-- Divider -->
+          <div style="height: 1px; background: linear-gradient(90deg, transparent, #27272a, transparent); margin: 32px 0;"></div>
+
+          <p style="color: #52525b; font-size: 12px; line-height: 1.5; margin: 0;">
+            If you did not initiate this request, your account is secure, but you may safely ignore and delete this email.
+          </p>
+
+        </div>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
 `,
     });
 
